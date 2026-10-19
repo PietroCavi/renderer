@@ -1,0 +1,404 @@
+
+
+Cosa contiene un file ".obj" ?
+
+    K textures
+        K texture buffers
+    K modelli
+        K triangle buffers
+
+    N Vertici
+
+Multiple models can point to the same triangle buffer
+A model can have multiple textures
+
+Vertex transformation can happen in absolute parallel
+
+Processing triangles in parallel, can I just scroll triangle buffers? will some threads be overwhelmed?
+    
+    Should I go on a per model basis [model -> thread]?
+    Should I subdivide models [model -> N threads]?
+    Should I lay all the triangles buffers in a row and then evalutate them all? Probably this one
+
+    I would like to maintain separation, so divide at compute time (?)
+
+I would like
+
+Vertex shaders
+Pixel shaders
+
+Model:
+
+Triangle buffer
+
+Vertex buffer
+
+Model Instance (defined in the previus iteration)
+
+    typedef struct{
+
+        model_mesh* mesh;
+        texture* tex;
+
+        vec3 rotation; // seguirò lo yaw, pitch, roll
+        vec3 position;
+        float scale;
+
+    }model_instance;
+
+"mesh" points to a specific mesh already loaded
+"tex" points to a texture already loaded
+"rotation, position, scale" properties of this specific instance
+
+Let's see what is inside a model_mesh and a texture
+
+    typedef struct{
+        
+        int* colors;
+        
+        size_t height;
+        size_t length;
+
+    }texture;
+
+    typedef struct{
+        
+        vec3* vertices;
+        unsigned int* index_buffer;
+        vec_uv* uv_vertices;
+        unsigned int* uv_index_buffer;
+
+        size_t vertices_size;
+        size_t index_buffer_size;
+        size_t uv_vertices_size;
+
+    }model_mesh;
+
+Each mesh has it's own vertex buffer and index buffer (for now let's ignore texture coordinates)
+
+what would be optimal is to have an underlying huge vertex buffer and index buffer, which would be unified for all loaded
+models, and then a model mesh would point to a specific area of such buffers (vertex AND index)
+
+Should I go on a per-triangle basis, or should I act on all vertexes and then compute triangles by using a "transformed" buffer?
+
+
+
+
+
+
+-------------------------------------------------
+
+suboptimal thread utilization (?) [could be optimal with some bullshit (?)]
+
+buffer -> transform + raster -> buffer
+
+-------------------------------------------------
+
+optimal thread utilization
+
+                        ???
+buffer -> transform -> buffer -> raster -> buffer
+
+-------------------------------------------------
+
+
+
+
+1 thread per model could be good for solution 1, but if a model has too
+many vertices and triangles more than 1 thread can be assigned to it.
+This could be a good solution, but it's not trivial. Where is the threshold?
+
+Testing could be a solution
+
+This will still need a buffer, perhaps at this point it means that implementing a buffer is the best solution for software renderers
+
+This would also reduce the overall computed vertexes, because I would have to compute the vertexes only once and not once per call.
+
+
+
+
+Are vec3 even necessary anymore? same goes for vec_uv
+
+
+Vertex buffer <- N triangle buffers 
+              <- N uv buffers
+
+A valid option is to merge all the assets in one big model at runtime, with pooled buffers
+
+ Scene models
++---------+-------------+------------------+---------+-----------------+
+| model 1 | model 2     | model 3          | model 4 | model 5         |
++---------+-------------+------------------+---------+-----------------+
+| vertex buffer 1       | vertex buffer 2            | vertex buffer 3 |
++-----------------------+----------------------------+-----------------+
+
+This would mean that a model contains a triangle buffer and a normal buffer, which would probably consist of primitive arrays at this point
+
+The next doubt is: how should I handle this pooling, should I maintain the buffers actually separate but create a data structure that allows iteration
+
+Or should I physically pool the floats for the vertex buffer and then add an offset to the model struct which refers to a value to be added to each triangle
+index in the triangle buffer to individuate a specific index in the vertex buffer?
+
+Since these models should technically be loaded in ram constantly deletion is not really an operation, so creating a struct seems counter productive, but
+the implementation would result in cleaner code, although since performance is quite critical I lean mode on the physically pooled approach
+
+To make an object appear or disapper we will rely on instances, what would instances look like?
+
+ Scene instances
++------------------+    +----------+----------+-------+
+| model 1 instance | -> | position | rotation | scale |
++------------------+    +----------+----------+-------+
+| model 1 instance | -> | position | rotation | scale |
++------------------+    +----------+----------+-------+
+| model 1 instance | -> | position | rotation | scale |
++------------------+    +----------+----------+-------+
+| model 1 instance | -> | position | rotation | scale |
++------------------+    +----------+----------+-------+
+| model 2 instance | -> | position | rotation | scale |
++------------------+    +----------+----------+-------+
+| model 2 instance | -> | position | rotation | scale |
++------------------+    +----------+----------+-------+
+| model 3 instance | -> | position | rotation | scale |
++------------------+    +----------+----------+-------+
+
+ Scene models
++---------+-------------+------------------+---------+--------------------+
+| model 1 | model 2     | model 3          | model 4 | model 5            |
++---------+-------------+------------------+---------+--------------------+
+| uv vertex buffer      | uv vertex buffer 2         | vu vertex buffer 3 |
++-----------------------+----------------------------+--------------------+
+| vertex buffer 1       | vertex buffer 2            | vertex buffer 3    |
++-----------------------+----------------------------+--------------------+
+
+how should and instance refer to a model?
+
+IDs? or direct pointers?
+
+model{
+    index buffer [int_al]
+    uv index buffer [int_al]
+
+    offset [int]
+
+    id [string/int] != NULL/-1 (this signals binding and links the model list with the instances (???))
+}
+
+buffers{
+    vertex buffer [float_al]
+    uv vertex buffer [float_al]
+}
+
+Models should really be stored in a way that facilitates parsing, indeed, so, first, textures, texture must be somewhat searchable, so let's have a way
+to do it, I need an array_list of textures, and textures must have the name of the file embdedded, so
+
+typedef struct{
+    
+    char* file_name;
+
+    int* colors;
+	
+    size_t height;
+    size_t length;
+} texture;
+
+In this way I can declare a new kind of array_list, all my textures will be parsed an loaded beforehand, when I'm parsing the model I will just have to
+search and link the right texture
+
+typedef struct{
+
+    texture* items;
+    size_t size;
+    size_t capacity;
+
+}texture_al;
+
+when I parse an obj file I will extract:
+    1. a comprehensive vertex buffer, which I already defined:
+        
+        typedef struct{
+            float_al vertex_buffer;
+            float_al uv_vertex_buffer;
+        }unified_vertex_buffer;
+
+    2. one or more models:
+
+        typedef struct{
+            int_al index_buffer;
+            int_al uv_index_buffer;
+
+            texture* tex;
+
+            int offset;
+            int uv_offset;
+        }model;
+    
+Point 1 is very clear, my problem lies in point 2!
+
+models in point 2 will have both offsets set to 0 (obviously), but I can have more than 1 model, so I can create an array_list for this as well
+
+    typedef struct{
+        
+        model* items;
+        size_t size;
+        size_t capacity;
+    }model_al
+
+Ok, almost there, so, when I parse a single file, I will have to return something like an asset_bundle
+
+    typedef struct{
+        model_al models;
+        
+        texture_al textures;
+
+        unified_vertex_buffer vertex_buffer;
+    } asset_bundle;
+
+The asset bundles contains basically 3 things, a list of models, a list of textures and a vertex_buffer, ok, so... in reality returning textures is kind
+of optional, because deleting models from here will not be supported for now, but having a reference to all textures can be good for freeing memory if
+we want to pass from a scene to another one!
+
+Ok, so we can now reason on asset_bundles.
+
+We are assuming that we can parse bundles from files, after loading bundles we can render them, so, asset_bundles must have some properties
+
+asset_bundle is renderable
+asset_bundle is mergiable
+
+so we want to create a function that merges asset bundles, what happens when we merge asset bundles?
+
+    function:
+        asset_bundle merge_asset_bundles(asset_bundle a, asset_bundle b);
+
+    vertex_buffer from both bundles are simply merged
+    textures from both bundles are simply merged
+
+    models are merged, but we now will set offsets on the models from b using the sizes that we can retrive in the vertex_buffer from asset_bundle a
+
+I ultimately decided to scrapt the unified_vertex_buffer in favour of two vertex buffers directly in the asset_bundle, I probably won't do the same
+with the model.
+
+It may be easier, also the asset bundle can be the new "model" and I may decide the introduce asset_bundle_instances for the actual rendering,
+in this way it will be easier to combine multiple models and entities if it's needed, and it won't change to approach for more entity-like structures.
+
+The separation of models is very useful for the separation of textures, which would be problematic if we merged the models like we do for the vertex_buffers
+but it would be a lot better for parallelization, I think that I still can achieve a similar effect but it won't be as naive as it would with a unified
+index_buffer.
+
+
+
+
+
+
+
+
+
+Memory leak grosso come una casa quando faccio un merge, esplorare!
+
+Non è un memory leak, sono texture duplicate all'interno del bundle, il problema? Sbrogliare i duplicati e aggiustare gli indici all'interno dei modelli.
+Non saprei dire se è una cattiva o una buona notizia, nel senso, è una buona notizia perchè vuol dire che non sono così un inetto come avevo pensto
+ma è cattiva perchè rappresenta più lavoro rispetto a fixare un memory leak (che sarebbe stato semplice).
+
+
+So texture loading is the problem indeed. What would be best is to load all textures immediately, then I should parse the models and link the textures,
+this is what I have done before, it's a wore implementation overall, but a better approach, or... I should math by name the texture when merging, but then
+how would I distinguish copies if they are identified just by the name?
+
+My problem is keeping consistency in my approach, I am utterly confused by what I am doing.
+
+I need an elegant solution, perhaps a kind of hashmap for textures... I should look into hashing strings...
+
+I created a global_texture_buffer where all the textures are stored, when I have to parse a texture I first check in the global buffer, if it's not present
+I load it, in this way I keep every texture global, the previous methods don't change, the model still has an index pointing to an array of texture, nothing
+should really change, it's a good approach, it's the same as the old one!
+
+Now I need to create a structure for parallel operations, it should be FUN!
+
+
+Ok, what will be the approach, I'm thinking of something like this:
+    
+    {
+        threads
+        thread_num
+        void**arg;
+        lock
+    }
+
+basically all the threads get initialized and they will run a wrapper function which is structured like this:
+    
+    void* thread_func(void* arg){
+        
+        // extraction of function from arg
+        
+        while(1){
+            wait();
+            function(arg+offset);
+        }
+
+        return NULL;
+    }
+
+The init will return a structure containing the thread pointers, the number of threads, the lock and a portion of memory that will be used by the threads to
+get their argument
+
+the signature will look something like this:
+    
+    parallel_unit init_parallel_unit(size_t number_of_threads, void(*fnPtr)(void*));
+
+The so called parallel_unit will be started with a simple function, start_parallel_unit(parallel_unit to_execute), it will look something 
+like this (pseudo):
+
+    void start_parallel_unit(parallel_unit to_execute){
+        unlock(to_execute.lock);
+
+        join_until_finished()
+
+        return;
+    }
+
+There is a slight problem, which is basically the preparation of the memory portion which has to be executed, I could create a function to load the 
+arguments, but honestly since the void** is exposed I can leave the loading to be done manually by the user.
+
+
+
+[x] - step 1: a better arraylist
+[x] - step 2: definition of a 2D display which is solid
+[x] - step 3: separation of the Display from the computations
+[x] - step 4: a redefinition of meshes
+[x] - step 5: a redefinition of textures (maybe not needed)
+[x] - step 6: a new, fucking decent parser
+[x] - step 7: a more solid approach to semaphores, perhaps a good interface with function calls
+
+Now let's begin the actual rendering logic.
+
+
+
+
+4 Thread -> 4 array_list
+
+    transfrom 8 -> su 4 Thread
+
+    if(! ci sono 32 triangoli in totale){
+        transfrom 8 -> su 4 Thread
+    }
+    else{
+        rebalancing delle liste -> quanto è lento lui ???
+    }
+
+    raster() con 4 Thread
+
+    elimina gli 8 triangoli da ogni lista
+   
+Ok, so... the structure shown above can be adopted, I'm not against it, I will push all this shit on github and then I will proceed and
+try to implement it.
+
+
+
+
+
+
+
+
+
+
+
+
