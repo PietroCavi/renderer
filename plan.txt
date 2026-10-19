@@ -391,6 +391,131 @@ Now let's begin the actual rendering logic.
 Ok, so... the structure shown above can be adopted, I'm not against it, I will push all this shit on github and then I will proceed and
 try to implement it.
 
+Now that all this shit has been uploaded and backed up we can start
+
+
+Ok, so, the renderer will be "atomic", it won't be an instanciable struct.
+
+we will need an init function
+
+init_renderer(width, height, num_threads){
+    
+    stop_renderer(); // if possible.
+
+    setting global width and height;
+    
+    create the needed parallel units with the corresponding functions;
+
+    allocate the global int array;
+
+}
+
+stop_renderer(){
+    destroy the global parallel units;
+
+    deallocate the global int array;
+}
+
+which will be the global resources (?)
+
+    parallel units;
+
+    size_t renderer_width;
+    size_t renderer_height;
+
+    int* pixel_buffer; //size will be renderer_width*renderer_height*sizeof(int)
+    float* z_buffer;
+
+    renderer_camera camera;
+
+    typedef struct{
+        vec3 position;
+        vec3 rotation;
+    }renderer_camera;
+
+    int** thread_pixel_buffer;
+    float** thread_z_buffer;
+
+Now that this has beed decided, we will pass on by scketching the actual rendering pipeline
+
+So, for each triangle I will need to:
+    
+    Get 3 vertices: a,b,c
+    
+    Transform with the asset properties:
+        
+        scale      -> a,b,c
+        rotate_yxz -> a,b,c
+        translate  -> a,b,c
+    
+    Transform with the camera properties:
+        
+        translate (sub) -> a,b,c
+        rotate_yxz      -> a,b,c
+    
+    Backface culling:
+        
+        normal = triangle_normal(a,b,c);
+        dot(normal,a)
+
+Ok, so, these are generally fine definitions, my current problem is that I'm working with these a,b and c, which are vec3 entities.
+A vec3 is basically defined by 3 floats, I will be working with a float[3], but then again, since I will be dealing with 8 triangles at a time, I will be
+working with an intermediate smaller vertex buffer devided in 3 float[24]
+
+This:
+
+    vec3 scale(vec3 v,float s){
+        return (vec3){
+            .x = v.x * s,
+            .y = v.y * s,
+            .z = v.z * s
+
+        };
+    }
+
+will turn into this:
+    
+    static inline void scale(float x[24], float y[24], float z[24], float s){
+        const __m256 V = _mm256_set1_ps(v);
+        for(size_t i=0;i<24;i+=8){
+
+            __m256 X   = _mm256_loadu_ps(x+i);
+            __m256 Y   = _mm256_loadu_ps(y+i);
+            __m256 Z   = _mm256_loadu_ps(z+i);
+
+            _mm256_storeu_ps(x+i, _mm256_mul_ps(X, V));
+            _mm256_storeu_ps(y+i, _mm256_mul_ps(Y, V));
+            _mm256_storeu_ps(z+i, _mm256_mul_ps(Z, V));
+        }
+    }
+
+Translating all these transformations to work with vectorial operations should not be too bad honestly.
+
+My main 2 problems are:
+    
+    Which triangles have to be processed by the threads?
+
+    After the culling I need at least 8 triangles per Threads ready to continue.
+
+So, the main Thread can get the right amout of triangles to start with the right adjusted indexes
+
+Each Thread will have a separate array_list where it pushes the triangles that can be rendered.
+
+when I have a total of renderable_triangles*8*NUM_THREADS... I can start the pixel drawing! 
+
+Once the pixel drawing is complete... 
+
+I will have to merge all the pixel buffers into one main buffer, this task can also be parallelized
+
+once this is done... I can finally print the final result to the screen!
+
+
+
+
+
+
+
+
 
 
 
