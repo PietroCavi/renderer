@@ -20,7 +20,7 @@ int main(){
     
     printf("\n");
 
-    init_renderer(1,1,1);
+    init_renderer(160,77,8);
     
     asset_bundle_instance instance = {0};
     instance.to_render = &test;
