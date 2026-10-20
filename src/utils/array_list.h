@@ -95,4 +95,12 @@ typedef struct{
         memcpy(destination.items,list.items,list.size*sizeof(*list.items)); \
     }while(0);
 
+#define free_al(list) \
+    do{ \
+        if(list.items!=NULL){ \
+            free(list.items); \
+            list.items = NULL; \
+        } \
+    }while(0);
+
 #endif

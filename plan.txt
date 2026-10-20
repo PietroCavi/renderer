@@ -509,7 +509,16 @@ I will have to merge all the pixel buffers into one main buffer, this task can a
 
 once this is done... I can finally print the final result to the screen!
 
+---------------------------------------------------------------------------------
 
+La prima funzione che devo fare sarà appunto una funzione di transform, dovrò passare:
+
+    Indirizzo dell'index buffer
+    offset
+    Indirizzo del vertex buffer
+    Numero di triangoli (generalmente 8, ma magari meno se sono alla fine)
+
+La camera sarà globale e l'array_list in cui pushare i triangoli pure.
 
 
 
