@@ -1,5 +1,6 @@
 #include "renderer.h"
 #include "../utils/parallel_unit.h"
+#include "../transform_functions/transform_functions.h"
 
 size_t num_threads = 0;
 size_t renderer_width = 0;
@@ -22,7 +23,8 @@ static void* transform_and_cull(void* arg);
 void init_renderer(size_t width, size_t height, size_t threads){
     
     if(threads == 0 || width == 0 || height == 0){
-        printf("Initialization error");
+        printf("Initialization error => width:%lu   height:%lu   threads:%lu\n");
+        printf("These values can't be 0\n");
 
         exit(1);
     }
@@ -103,7 +105,8 @@ typedef struct{
     int* index_buffer;
     int offset;
     float* vertex_buffer;
-    int number_of_triangles;
+    int first_index;
+    int last_index;
     size_t thread_id;
     
     vec3 position;
@@ -116,23 +119,40 @@ static void* transform_and_cull(void* arg){
     int* index_buffer          = args->index_buffer;
     int offset                 = args->offset;
     float* vertex_buffer       = args->vertex_buffer;
-    int number_of_triangles    = args->number_of_triangles;
+    int first_index    = args->first_index;
+    int last_index    = args->last_index;
     size_t thread_id           = args->thread_id;
+    
+    vec3 position = args->position;
+    vec3 rotation = args->rotation;
+    float scale_f   = args->scale;
 
     float x[24];
     float y[24];
     float z[24];
 
-    for(size_t i=0;i<number_of_triangles*3;i++){
-        x[i] = vertex_buffer[index_buffer[i]+offset  ];
-        y[i] = vertex_buffer[index_buffer[i]+offset+1];
-        z[i] = vertex_buffer[index_buffer[i]+offset+2];
+    size_t number_of_vertices = 0;
 
-        printf("%f %f %f\n",x[i],y[i],z[i]);
+    //printf("first_index:%d last_index:%d\n",first_index,last_index);
+
+    for(size_t i=first_index;i<=last_index;i+=24){
+        for(number_of_vertices=0;number_of_vertices<24 && i+number_of_vertices <= last_index;number_of_vertices+=3){
+            x[number_of_vertices] = vertex_buffer[index_buffer[i+number_of_vertices]+offset  ];
+            y[number_of_vertices] = vertex_buffer[index_buffer[i+number_of_vertices]+offset+1];
+            z[number_of_vertices] = vertex_buffer[index_buffer[i+number_of_vertices]+offset+2];
+        }
+        
+        // world transformation
+        scale(x,y,z,scale_f); 
+        rotate_yxz(x,y,z,rotation);
+        translate_vec3(x,y,z,position);
+
+        //camera transformation
+        sub_vec3(x,y,z,camera.position);
+        rotate_yxz(x,y,z,camera.rotation);
+
     }
     
-
-
     return NULL;
 }
 
@@ -143,39 +163,45 @@ void render_asset_bundle(asset_bundle_instance instance){
     float_al uv_vertex_buffer = instance.to_render->uv_vertex_buffer;
     
     model current_model;
-    size_t remaining_triangles;
+    
+    size_t prov;
+    size_t model_size;
+
+    size_t portion_size;
+
+    size_t first_index;
+    size_t last_index;
     transform_and_cull_args to_transform[num_threads];
 
     for(size_t i=0;i<models.size;i++){
         current_model = models.items[i];
-        
-        remaining_triangles = current_model.index_buffer.size / 3;
+        model_size = current_model.index_buffer.size;
 
-        for(size_t j=0;j<current_model.index_buffer.size;j+=24*num_threads){
-            for(size_t k=0;k<num_threads;k++){
-                to_transform[k] = (transform_and_cull_args){
-                    .index_buffer = current_model.index_buffer.items + j + 24*k,
-                    .offset = current_model.offset,
-                    .vertex_buffer = vertex_buffer.items,
-                    .number_of_triangles = remaining_triangles>=8 ? 8 : remaining_triangles,
-                    .thread_id = k,
-                    .position = instance.position,
-                    .rotation = instance.rotation,
-                    .scale = instance.scale
-                };
-                
-                if(remaining_triangles >= 8){
-                    remaining_triangles -= 8;
-                }
-                else{
-                    remaining_triangles = 0;
-                }
+        portion_size = model_size / num_threads;
 
-                transform_unit.args[k] = &to_transform[k];
-            }
+        for(size_t k=0;k<num_threads;k++){
+            first_index = portion_size*k;
             
-            execute_parallel_unit(transform_unit);
+            prov = portion_size*(k+1)-1;
+
+            last_index  = prov < model_size ? prov : model_size-1;
+
+            to_transform[k] = (transform_and_cull_args){
+                .index_buffer = current_model.index_buffer.items,
+                .offset = current_model.offset,
+                .vertex_buffer = vertex_buffer.items,
+                .first_index = first_index,
+                .last_index  = last_index,
+                .thread_id = k,
+                .position = instance.position,
+                .rotation = instance.rotation,
+                .scale = instance.scale
+            };
+            
+            transform_unit.args[k] = &to_transform[k];
         }
+            
+        execute_parallel_unit(transform_unit);
     }
 
 }

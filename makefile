@@ -9,9 +9,12 @@ SOURCE_FILES = $(SOURCE_DIR)/main.c
 SOURCE_FILES += $(SOURCE_DIR)/renderer_structs/renderer_structs.c
 SOURCE_FILES += $(SOURCE_DIR)/asset_loader/asset_loader.c
 SOURCE_FILES += $(SOURCE_DIR)/utils/parallel_unit.c
+SOURCE_FILES += $(SOURCE_DIR)/utils/timerino.c
 SOURCE_FILES += $(SOURCE_DIR)/renderer/renderer.c
+SOURCE_FILES += $(SOURCE_DIR)/transform_functions/transform_functions.c
 
-CFLAGS += -O3 -I$(SOURCE_DIR)
+CFLAGS += -funroll-loops -Ofast -I$(SOURCE_DIR)
+CFLAGS += -mavx2
 #CFLAGS += -march=native
 #CFLAGS += -fopenmp
 #CFLAGS += -funroll-loops

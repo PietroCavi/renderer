@@ -521,7 +521,11 @@ La prima funzione che devo fare sarà appunto una funzione di transform, dovrò 
 La camera sarà globale e l'array_list in cui pushare i triangoli pure.
 
 
+Idea di merda in generale, devo prendere un modello, e dividerlo in N parti
 
+quindi
+
+    
 
 
 
