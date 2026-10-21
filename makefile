@@ -14,11 +14,11 @@ SOURCE_FILES += $(SOURCE_DIR)/renderer/renderer.c
 SOURCE_FILES += $(SOURCE_DIR)/transform_functions/transform_functions.c
 
 CFLAGS += -funroll-loops -Ofast -I$(SOURCE_DIR)
-CFLAGS += -mavx2
+CFLAGS += -mavx2 -mfma
 #CFLAGS += -march=native
 #CFLAGS += -fopenmp
 #CFLAGS += -funroll-loops
-#CFLAGS += -fprefetch-loop-arrays
+CFLAGS += -fprefetch-loop-arrays
 #CFLAGS += -fno-exceptions
 
 LDFLAGS += -lm
