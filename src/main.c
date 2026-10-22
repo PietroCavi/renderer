@@ -25,7 +25,7 @@ int main(){
     printf("\n");
 
     init_terminal_screen(WIDTH,HEIGHT);
-    init_renderer(WIDTH,HEIGHT,14);
+    init_renderer(WIDTH,HEIGHT,8);
     
     asset_bundle_instance instance = {0};
     instance.to_render = &test;
