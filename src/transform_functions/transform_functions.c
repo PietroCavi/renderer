@@ -181,9 +181,9 @@ void triangle_normal(float x[144], float y[144], float z[144], float x_normal[14
     }}
 
 void triangle_dot(const float x[144], const float y[144], const float z[144],
-                  const float x_normal[48], const float y_normal[48], const float z_normal[48],
-                  float dot[48])
-{
+                      const float x_normal[48], const float y_normal[48], const float z_normal[48],
+                          float dot[48]){
+
     const __m256i stride = _mm256_setr_epi32(0, 3, 6, 9, 12, 15, 18, 21);
 
     for(size_t t = 0; t < 48; t += 8){
@@ -204,39 +204,4 @@ void triangle_dot(const float x[144], const float y[144], const float z[144],
         _mm256_storeu_ps(dot + t, d);
     }
 }
-/*
 
-vec3 normalize(vec3 v){
-    float magnitude = sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
-
-    vec3 ret = {
-        .x = v.x / magnitude,
-        .y = v.y / magnitude,
-        .z = v.z / magnitude
-    };
-
-    return ret;
-
-}
-
-float dot(vec3 a, vec3 b){
-    return a.x*b.x + a.y*b.y + a.z*b.z;
-}
-
-vec3 cross_vec3(vec3 v0, vec3 v1){
-    return (vec3){
-                  .x = v0.y*v1.z - v0.z*v1.y,
-                  .y = v0.z*v1.x - v0.x*v1.z,
-                  .z = v0.x+v1.y - v0.y*v1.x 
-                 };
-
-}
-
-vec3 get_forward_incr(vec3 angles){
-    return rotate_zxy((vec3){0,0,MOVEMENT_SPEED},angles);
-}
-
-vec3 get_right_incr(vec3 angles){
-    return rotate_zxy((vec3){MOVEMENT_SPEED,0,0},angles);
-}
-*/
