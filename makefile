@@ -10,8 +10,10 @@ SOURCE_FILES += $(SOURCE_DIR)/renderer_structs/renderer_structs.c
 SOURCE_FILES += $(SOURCE_DIR)/asset_loader/asset_loader.c
 SOURCE_FILES += $(SOURCE_DIR)/utils/parallel_unit.c
 SOURCE_FILES += $(SOURCE_DIR)/utils/timerino.c
+SOURCE_FILES += $(SOURCE_DIR)/utils/polly.c
 SOURCE_FILES += $(SOURCE_DIR)/renderer/renderer.c
 SOURCE_FILES += $(SOURCE_DIR)/transform_functions/transform_functions.c
+SOURCE_FILES += $(SOURCE_DIR)/camera_transform/camera_transform.c
 
 CFLAGS += -funroll-loops -Ofast -I$(SOURCE_DIR)
 CFLAGS += -mavx2 -mfma

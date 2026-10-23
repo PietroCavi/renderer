@@ -1,27 +1,43 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "utils/array_list.h"
    
 #define TERMINAL_SCREEN_IMPLEMENTATION
 #include "utils/terminal_screen.h"
 #include "utils/timerino.h"
+#include "utils/polly.h"
 #include "renderer_structs/renderer_structs.h"
 #include "asset_loader/asset_loader.h"
 #include "renderer/renderer.h"
+#include "camera_transform/camera_transform.h"
 
-#define WIDTH 240
-#define HEIGHT 126
+#define WIDTH 384
+#define HEIGHT 168
+
+// #define WIDTH 640
+// #define HEIGHT 253
+
+#define MOVEMENT_SPEED 30
+#define ROTATION_SPEED 1.75
+
+void sig_handler(int signal);
+void handle_camera(float dt);
 
 int main(){
+    if (signal(SIGINT, sig_handler) == SIG_ERR){
+        printf("Can't safely close the program!\n");
+        printf("There may be semaphores left behind\n");
+        exit(1);
+    }
 
-    printf("\n---- test dir ----\n\n");
+    start_polly();
 
+    printf("\n---- loading models ----\n\n");
     asset_bundle test = load_asset_bundle_dir("assets/teapot");
-    
     print_asset_bundle(test);
-    
     printf("\n");
 
     init_terminal_screen(WIDTH,HEIGHT);
@@ -30,37 +46,79 @@ int main(){
     asset_bundle_instance instance = {0};
     instance.to_render = &test;
     instance.scale = 1;
-    instance.position = (vec3){0,0,5};
 
+    float time_taken = 0.0166f;
+    while(!is_down(KEY_Q)){
+        // Update your camera position using delta time
+        // camera.x += camera_speed * time_taken;
+        handle_camera(time_taken);
 
-    double total_time = 0;
-    
-    for(size_t i=0;i<10;i++){
-        render_asset_bundle(instance);
-    }
-
-    vec3 rotation = {0,0,0};
-    for(size_t i=0;i<1000;i++){
         start_timerino();
         render_asset_bundle(instance);
-        stop_timerino();
-        
         load_terminal_screen(pixel_buffer);
         printf("\033\143%s",screen_str);
-        
-        rotation.x += 0.1;
-        rotation.y += 0.1;
-        instance.rotation = rotation; 
+        stop_timerino();
 
-        total_time += get_timerino("ms");
-        
-        //usleep(50000);
+        time_taken = get_timerino("s");
+
     }
-
-    printf("avg time on 1000 frames: %fms\n",total_time/1000.0);
-
+  
     stop_renderer();
+    stop_polly();
 
     // while(1);
 }
 
+
+void sig_handler(int signal){
+  printf("\nProgram is closing...\n");
+
+  stop_renderer();
+  exit(0);
+}
+
+void handle_camera(float dt){
+   
+    vec3 forward = get_forward_incr(MOVEMENT_SPEED*dt);
+    vec3 right   = get_right_incr(MOVEMENT_SPEED*dt);
+
+
+    if(is_down(KEY_W)){
+        camera.position.x += forward.x; 
+        camera.position.y += forward.y; 
+        camera.position.z += forward.z; 
+    }
+    if(is_down(KEY_A)){
+        camera.position.x -= right.x; 
+        camera.position.y -= right.y; 
+        camera.position.z -= right.z; 
+    }
+    if(is_down(KEY_S)){
+        camera.position.x -= forward.x; 
+        camera.position.y -= forward.y; 
+        camera.position.z -= forward.z; 
+    }
+    if(is_down(KEY_D)){
+        camera.position.x += right.x; 
+        camera.position.y += right.y; 
+        camera.position.z += right.z; 
+    }
+    if(is_down(KEY_SPACE)){
+        camera.position.y += MOVEMENT_SPEED*dt;
+    }
+    if(is_down(KEY_LEFTSHIFT)){
+        camera.position.y -= MOVEMENT_SPEED*dt;
+    }
+    if(is_down(KEY_I)){
+        camera.rotation.x += ROTATION_SPEED*dt;
+    }
+    if(is_down(KEY_J)){
+        camera.rotation.y += ROTATION_SPEED*dt;
+    }
+    if(is_down(KEY_K)){
+        camera.rotation.x -= ROTATION_SPEED*dt;
+    }
+    if(is_down(KEY_L)){
+        camera.rotation.y -= ROTATION_SPEED*dt;
+    }
+}
