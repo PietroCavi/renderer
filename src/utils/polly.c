@@ -41,11 +41,15 @@ int start_polly(){
 }
 
 int stop_polly(void) {
+    if(keyboard_file == -1){
+        printf("polly has already been closed or was never opened\n");
+        return 0;
+    }
+
     pthread_cancel(polly_thread);
     pthread_join(polly_thread, NULL);  // wait until it has really stopped
-    if(keyboard_file != -1){
-        close(keyboard_file);
-        keyboard_file = -1;
-    }
+    close(keyboard_file);
+    keyboard_file = -1;
+    
     return 1;
 }

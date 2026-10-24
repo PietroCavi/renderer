@@ -74,6 +74,8 @@ void sig_handler(int signal){
   printf("\nProgram is closing...\n");
 
   stop_renderer();
+  stop_polly();
+  
   exit(0);
 }
 
